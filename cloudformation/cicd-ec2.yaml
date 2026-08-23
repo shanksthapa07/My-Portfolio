@@ -1,0 +1,79 @@
+AWSTemplateFormatVersion: '2010-09-09'
+
+Description: EC2 infrastructure for portfolio CI/CD project
+
+Parameters:
+
+  KeyName:
+    Description: Existing AWS EC2 Key Pair
+    Type: AWS::EC2::KeyPair::KeyName
+
+  PublicIP:
+    Description: Public IPv4 address allowed for SSH access
+    Type: String
+
+  InstanceType:
+    Description: EC2 instance type
+    Type: String
+    Default: t3.micro
+
+  UbuntuAMI:
+    Description: Ubuntu Server 24.04 LTS AMI
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/canonical/ubuntu/server/24.04/stable/current/amd64/hvm/ebs-gp3/ami-id
+
+Resources:
+
+  PortfolioSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for portfolio EC2 server
+
+      SecurityGroupIngress:
+
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Sub '${PublicIP}/32'
+          Description: SSH access from my public IP
+
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP access
+
+      Tags:
+        - Key: Name
+          Value: Portfolio-CICD-SecurityGroup
+
+  PortfolioEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref UbuntuAMI
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+
+      SecurityGroupIds:
+        - !Ref PortfolioSecurityGroup
+
+      BlockDeviceMappings:
+        - DeviceName: /dev/sda1
+          Ebs:
+            VolumeSize: 8
+            VolumeType: gp3
+            DeleteOnTermination: true
+
+      Tags:
+        - Key: Name
+          Value: Portfolio-CICD-Server
+
+Outputs:
+
+  InstanceId:
+    Description: EC2 Instance ID
+    Value: !Ref PortfolioEC2
+
+  SecurityGroupId:
+    Description: Security Group ID
+    Value: !Ref PortfolioSecurityGroup
